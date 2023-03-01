@@ -154,9 +154,13 @@ func main() {
 
 		//Login
 		app.Post("/Login", user.Login)
+
+		// login google
+		//app.Get("/login", login.SignIn)
 	}
 
 	//----Google----
+
 	app.Get("/", user.ShowGoogleAuthentication)
 
 	app.Get("/auth/:provider/callback", func(ctx *fiber.Ctx) error {
@@ -185,6 +189,7 @@ func main() {
 
 	fmt.Println(os.Getenv("PUERTO"))
 	app.Listen(os.Getenv("PUERTO"))
+
 }
 
 func goDotEnvVariable(key string) string {

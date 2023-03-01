@@ -1,26 +1,37 @@
 package login
 
 import (
-	"fmt"
+	"context"
 
+	"github.com/gofiber/fiber"
 	"github.com/gofiber/fiber/v2"
 )
 
 type User struct {
-	TokenId int    `json:"tokenId" gorm:"primaryKey"`
-	Email   string `json:"email"`
-	User    string `json:"user"`
+	Token    int    `json:"token"`
+	User     string `json:"user"`
+	Email    string `json:"email"`
+	Nombre   string `json:"nombre"`
+	Apellido string `json:"apellido"`
 }
 
-func onSignIn(c *fiber.Ctx) error {
-	profile := googleUser.getBasicProfile()
-	console := googleUser()
-	console("ID: " + profile.getId())
-	console("Name: " + profile.getName())
-	console("Email: " + profile.getEmail())
+func SignIn(c *fiber.Ctx, googleUser) error {
+	coll := googleUser.getBasicProfile("https://apis.google.com/js/platform.js").Content("226207107235-qiemrp4uajoakgvu2gi4obckqmgvdg9c.apps.googleusercontent.com")
+	profile := coll.Find(context.TODO())
 
-	id_token := googleUser.getAuthResponse().id_token
-	console(id_token)
+	email := (("email") + profile.getEmail())
+	coll.Where("email = ?", profile.getEmail).First(&user)
+	if email.User == "" {
+		return c.SendString("usuario no habilitado")
+	}
 
-	fmt.Println(onSignIn)
+	nombre := (("nombre") + profile.getNombre())
+	apellido := (("apellido") + profile.getApellido())
+
+	user := (("user") + profile.getUser())
+
+	token = googleUser.getAuthResponse()
+	console.log(token)
+
+	return (profile)
 }
