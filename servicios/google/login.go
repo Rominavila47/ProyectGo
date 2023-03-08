@@ -1,45 +1,48 @@
 package login
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"context"
+	"fmt"
+	"strconv"
 
-//	"context"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/session"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"gorm.io/gorm"
+)
 
-//	"github.com/gofiber/fiber"
-//	"github.com/gofiber/fiber/v2"
+var store *session.Store = session.New()
+var dbUser *gorm.DB
+var client *mongo.Client
+
+func ConnectMongoDb(clientMongo *mongo.Client) {
+	client = clientMongo
+}
 
 type User struct {
-	User       string `bson:"user"`
 	ClientId   string `bson:"clientId"`
 	Credential string `bson:"credential"`
 }
 
 func SignIn(c *fiber.Ctx) error {
-	User := new(User)
-	if err := c.BodyParser(User); err != nil {
+	newUser := new(User)
+	if err := c.BodyParser(newUser); err != nil {
 		return c.Status(503).SendString(err.Error())
 	}
 
+	coll := client.Database("portalDeNovedades").Collection("login")
+	clientId, _ := strconv.Atoi(c.Params("id"))
+	cursor, err := coll.Find(context.TODO(), bson.M{"clientId": clientId})
+
+	var user []User
+	if err = cursor.All(context.Background(), &user); err != nil {
+		fmt.Print(err)
+	}
+
+	if newUser.ClientId == "" {
+		return c.SendString("usuario no habilitado")
+	}
+
+	return c.JSON(user)
 }
-
-//func SignIn(c *fiber.Ctx) error {
-
-//	coll := googleUser.getBasicProfile("https://apis.google.com/js/platform.js").Content("226207107235-qiemrp4uajoakgvu2gi4obckqmgvdg9c.apps.googleusercontent.com")
-//	profile := coll.Find(context.TODO())
-
-//	email := (("email") + profile.getEmail())
-//	coll.Where("email = ?", profile.getEmail).First(&email)
-//	if email.User == "" {
-//		return c.SendString("usuario no habilitado")
-//	}
-
-//	nombre := (("nombre") + profile.getNombre())
-//	apellido := (("apellido") + profile.getApellido())
-
-//	user := (("user") + profile.getUser())
-
-//	token = googleUser.getAuthResponse()
-//	console.log(token)
-//	console.log(token)
-
-//	return (profile)
-//}

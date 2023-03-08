@@ -5,6 +5,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/template/html"
 	"github.com/proyectoNovedades/servicios/actividades"
+	login "github.com/proyectoNovedades/servicios/google"
 	"github.com/proyectoNovedades/servicios/novedades"
 	"github.com/proyectoNovedades/servicios/proveedores"
 	"github.com/proyectoNovedades/servicios/recursos"
@@ -87,6 +88,12 @@ type Recursos struct {
 	Legajo    int    `bson:"legajo"`
 }
 
+type User struct {
+	User       string `bson:"user"`
+	ClientId   string `bson:"clientId"`
+	Credential string `bson:"credential"`
+}
+
 func main() {
 
 	goth.UseProviders(
@@ -143,6 +150,8 @@ func main() {
 		app.Get("/Recurso", recursos.GetRecursoAll)
 		app.Delete("/Recurso/:id", recursos.DeleteRecurso)
 
+		//Login
+		//app.Post("/Login", google.SignIn)
 	}
 
 	if connectedWithSql {
@@ -153,10 +162,10 @@ func main() {
 		app.Delete("/User/:item", user.DeleteUser)
 
 		//Login
-		app.Post("/Login", user.Login)
+		//app.Post("/Login", user.Login)
 
 		// login google
-		//app.Get("/login", login.SignIn)
+		app.Get("Login", login.SignIn)
 	}
 
 	//----Google----
