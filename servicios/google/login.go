@@ -1,19 +1,23 @@
 package login
 
-import (
-)
+import "github.com/gofiber/fiber/v2"
+
 //	"context"
 
 //	"github.com/gofiber/fiber"
 //	"github.com/gofiber/fiber/v2"
 
 type User struct {
-	ClientId   string `json:"clientId"`
-	Credential string `json:"credential"`
+	User       string `bson:"user"`
+	ClientId   string `bson:"clientId"`
+	Credential string `bson:"credential"`
 }
 
-func SignIn(googleUser) error {
-	var profile := googleUser.getBasicProfile()
+func SignIn(c *fiber.Ctx) error {
+	User := new(User)
+	if err := c.BodyParser(User); err != nil {
+		return c.Status(503).SendString(err.Error())
+	}
 
 }
 
