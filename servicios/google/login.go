@@ -46,3 +46,11 @@ func SignIn(c *fiber.Ctx) error {
 
 	return c.JSON(user)
 }
+
+//func Login(c *fiber.Ctx) error {
+//	user, err := gothic.CompleteUserAuth(c.Context(), c)
+//	if err != nil {
+//		return c.SendStatus(fiber.StatusInternalServerError)
+//	}
+//	return c.JSON(user)
+//}
