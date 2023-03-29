@@ -165,13 +165,13 @@ func main() {
 		app.Get("/Recurso", recursos.GetRecursoAll)
 		app.Delete("/Recurso/:id", recursos.DeleteRecurso)
 
-<<<<<<< HEAD
 		//Upload File
 		app.Post("/Upload", files.UploadFile)
-=======
+
 		//GoogleUser
-		app.Get("/user/:tokenString", userGoogle.ValidateGoogleJWT)
->>>>>>> fb4b3f2a2e353192652420aad644f3f908ad304c
+		app.Get("/user/:email", userGoogle.ValidateGoogleJWT)
+		app.Post("/user", userGoogle.InsertEmail)
+		app.Delete("/user/:email", userGoogle.DeleteEmail)
 
 	}
 

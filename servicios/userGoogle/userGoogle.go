@@ -1,6 +1,7 @@
 package userGoogle
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -18,6 +20,10 @@ var client *mongo.Client
 
 func ConnectMongoDb(clientMongo *mongo.Client) {
 	client = clientMongo
+}
+
+type User struct {
+	Email string `bson:"email"`
 }
 
 type GoogleClaims struct {
@@ -57,6 +63,7 @@ func ValidateGoogleJWT(c *fiber.Ctx) error {
 	token, err := jwt.ParseWithClaims(
 		tokenString,
 		&claimsStruct,
+
 		func(token *jwt.Token) (interface{}, error) {
 			pem, err := getGooglePublicKey(fmt.Sprintf("%s", token.Header["kid"]))
 			if err != nil {
@@ -90,7 +97,62 @@ func ValidateGoogleJWT(c *fiber.Ctx) error {
 		return errors.New("JWT is expired")
 	}
 
-	return c.JSON(*claims)
+	coll := client.Database("portalDeNovedades").Collection("login")
+	var newUser User
+
+	err = coll.FindOne(context.TODO(), bson.D{{"email", claims.Email}}).Decode(&newUser)
+	if err != nil {
+		fmt.Print(err)
+	}
+
+	return c.SendString("usuario invalido")
+}
+
+func InsertEmail(c *fiber.Ctx) error {
+	newUser := new(User)
+	if err := c.BodyParser(newUser); err != nil {
+		return err
+	}
+
+	coll := client.Database("portalDeNovedades").Collection("login")
+
+	result, err := coll.InsertOne(context.Background(), newUser)
+
+	if err != nil {
+		fmt.Print(result)
+	}
+
+	return c.SendString("usuario agregado")
+}
+
+func DeleteEmail(c *fiber.Ctx) error {
+	coll := client.Database("portalDeNovedades").Collection("login")
+	newUser := new(User)
+	if err := c.BodyParser(newUser); err != nil {
+		return err
+	}
+
+	result, err := coll.DeleteOne(context.Background(), bson.M{"email": newUser.Email})
+	if err != nil {
+		fmt.Print(result)
+	}
+	return c.SendString("usuario eliminado")
+}
+
+func MakeJWT(email string, secret string) (string, error) {
+	claims := GoogleClaims{
+		Email: email,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(secret))
+	if err != nil {
+		return "", err
+	}
+	return tokenString, nil
 }
 
 /*
