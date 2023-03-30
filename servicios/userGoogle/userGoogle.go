@@ -136,6 +136,7 @@ func DeleteEmail(c *fiber.Ctx) error {
 	if err != nil {
 		fmt.Print(result)
 	}
+	fmt.Print("usuario eliminado")
 	return c.SendString("usuario eliminado")
 }
 
