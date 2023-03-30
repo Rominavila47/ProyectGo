@@ -170,7 +170,6 @@ func main() {
 
 		//GoogleUser
 		app.Get("/user/:tokenString", userGoogle.ValidateGoogleJWT)
-		app.
 	}
 
 	if connectedWithSql {
