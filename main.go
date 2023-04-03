@@ -248,6 +248,7 @@ func createConnectionWithMongo() bool {
 		actividades.ConnectMongoDb(client)
 		proveedores.ConnectMongoDb(client)
 		recursos.ConnectMongoDb(client)
+		userGoogle.ConnectMongoDb(client)
 		return true
 	}
 	return false
