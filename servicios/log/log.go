@@ -1,28 +1,33 @@
 package log
 
-const (
-	Ldate = 1 << iota
-	Ltime
-	Llongfile
+import (
+	"log"
+	"os"
+
+	"github.com/gofiber/fiber/v2"
 )
 
-func SetFlags(flag int) {
+func Logger(c *fiber.Ctx) error {
+	file, err := os.Create("logfile.log")
+	if err != nil {
+		log.Fatal("No se pudo crear el archivo de registro:", err)
+	}
+	defer file.Close()
 
+	logger := log.New(file, "", 0)
+
+	// Establece el formato de fecha y hora y el prefijo
+	logger.SetFlags(log.Ldate | log.Ltime)
+	logger.SetPrefix("INFO: ")
+
+	realizarAccionImportante(logger)
+	return (err)
 }
 
-//func Log(c *fiber.Ctx) error {
+func realizarAccionImportante(logger *log.Logger) {
+	logger.Println("La acción importante ha comenzado.")
 
-//	logger, err := os.OpenFile("log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-//	if err != nil {
-//		log.Fatal(err)
-//	}
+	// Realiza la acción importante aquí...
 
-//	defer logger.Close()
-
-//	log.SetOutput(logger)
-
-//	for i := 0; i <= 10; i++ {
-//		log.Println("error linea %v", i)
-//	}
-//	return (nil)
-//}
+	logger.Println("La acción importante se ha completado exitosamente.")
+}
