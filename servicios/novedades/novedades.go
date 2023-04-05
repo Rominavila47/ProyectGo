@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
@@ -23,6 +24,7 @@ type Novedades struct {
 	ImporteTotal          float64             `bson:"importeTotal"`
 	ConceptoDeFacturacion string              `bson:"conceptoDeFacturacion"`
 	Adjuntos              []string            `bson:"adjuntos"`
+	AdjuntoMotivo         string              `bson:"adjuntoMotivo"`
 	Distribuciones        []Distribuciones    `bson:"distribuciones"`
 	Comentarios           string              `bson:"comentarios"`
 	Promovido             bool                `bson:"promovido"`
@@ -39,6 +41,7 @@ type Novedades struct {
 	FechaHasta            string              `bson:"fechaHasta"`
 	OrdenDeCompra         string              `bson:"ordenDeCompra"`
 	Resumen               string              `bson:"resumen"`
+	Aprobador             string              `bson:"aprobador"`
 }
 
 const (
@@ -54,14 +57,15 @@ type TipoNovedad struct {
 }
 
 type Cecos struct {
-	IdCecos          int    `bson:"idCecos"`
-	NCecos           string `bson:"nCecos"`
-	DescripcionCecos string `bson:"descripcionCecos"`
-	Cliente          string `bson:"cliente"`
+	IdCecos     int    `bson:"idCecos"`
+	Descripcion string `bson:"descripcioncecos"`
+	Cliente     string `bson:"cliente"`
+	Proyecto    string `bson:"proyecto"`
+	Codigo      int    `bson:"codigo"`
 }
 
 type Distribuciones struct {
-	Porcentaje float64 `bson:"porcentaje"`
+	Porcentaje float32 `bson:"porcentaje"`
 	Cecos      Cecos   `bson:"cecos"`
 }
 
@@ -70,6 +74,13 @@ type RecursosNovedades struct {
 	Comentarios string `bson:"comentarios"`
 	Recurso     string `bson:"recurso"`
 	Periodo     string `bson:"periodo"`
+	Porc        []P    `bson:"p"`
+}
+
+type P struct {
+	Cc       string  `bson:"cc"`
+	PorcCC   float32 `bson:"porcCC"`
+	Cantidad int     `bson:"cantidad"`
 }
 
 var client *mongo.Client
@@ -81,34 +92,54 @@ func ConnectMongoDb(clientMongo *mongo.Client) {
 // ----Novedades----
 // insertar novedad
 func InsertNovedad(c *fiber.Ctx) error {
+	//obtiene los datos
 	novedad := new(Novedades)
 	if err := c.BodyParser(novedad); err != nil {
 		return c.Status(503).SendString(err.Error())
 	}
 
+	// valida el estado
 	if novedad.Estado != Pendiente && novedad.Estado != Aceptada && novedad.Estado != Rechazada {
 		novedad.Estado = Pendiente
 	}
 
+	//le asigna un idSecuencial
 	coll := client.Database("portalDeNovedades").Collection("novedades")
 
 	filter := bson.D{{}}
 	opts := options.Find().SetSort(bson.D{{"idSecuencial", -1}})
 
 	cursor, error := coll.Find(context.TODO(), filter, opts)
+	if error != nil {
+		fmt.Println(error)
+	}
 
 	var results []Novedades
 	cursor.All(context.TODO(), &results)
 
-	fmt.Println(results)
-	fmt.Println(client)
-	fmt.Println(error)
+	if len(results) == 0 {
+		novedad.IdSecuencial = 1
+	} else {
+		novedad.IdSecuencial = results[0].IdSecuencial + 1
+	}
 
-	novedad.IdSecuencial = results[0].IdSecuencial + 1
+	//ingresa los archivos los archivos
+	form, err := c.MultipartForm()
+	if err != nil {
+		fmt.Println("No se subieron archivos")
+	}
+	for _, fileHeaders := range form.File {
+		for _, fileHeader := range fileHeaders {
+			c.SaveFile(fileHeader, fmt.Sprintf("./archivosSubidos/%s", fileHeader.Filename))
+		}
+	}
+
+	//inserta la novedad
 	result, err := coll.InsertOne(context.TODO(), novedad)
 	if err != nil {
 		fmt.Print(err)
 	}
+
 	fmt.Printf("Inserted document with _id: %v\n", result.InsertedID)
 	return c.JSON(novedad)
 }
@@ -137,34 +168,34 @@ func GetNovedadFiltro(c *fiber.Ctx) error {
 	coll := client.Database("portalDeNovedades").Collection("novedades")
 	var busqueda bson.M = bson.M{}
 	if c.Query("tipo") != "" {
-		busqueda["tipo"] = c.Query("tipo")
+		busqueda["tipo"] = bson.M{"$regex": c.Query("tipo"), "$options": "im"}
 	}
 	if c.Query("fecha") != "" {
-		busqueda["fecha"] = c.Query("fecha")
+		busqueda["fecha"] = bson.M{"$regex": c.Query("fecha"), "$options": "im"}
 	}
 	if c.Query("hora") != "" {
-		busqueda["hora"] = c.Query("hora")
+		busqueda["hora"] = bson.M{"$regex": c.Query("hora"), "$options": "im"}
 	}
 	if c.Query("usuario") != "" {
-		busqueda["usuario"] = c.Query("usuario")
+		busqueda["usuario"] = bson.M{"$regex": c.Query("usuario"), "$options": "im"}
 	}
 	if c.Query("proveedor") != "" {
-		busqueda["proveedor"] = c.Query("proveedor")
+		busqueda["proveedor"] = bson.M{"$regex": c.Query("proveedor"), "$options": "im"}
 	}
 	if c.Query("periodo") != "" {
-		busqueda["periodo"] = c.Query("periodo")
+		busqueda["periodo"] = bson.M{"$regex": c.Query("periodo"), "$options": "im"}
 	}
 	if c.Query("conceptoDeFacturacion") != "" {
-		busqueda["conceptoDeFacturacion"] = c.Query("conceptoDeFacturacion")
+		busqueda["conceptoDeFacturacion"] = bson.M{"$regex": c.Query("conceptoDeFacturacion"), "$options": "im"}
 	}
 	if c.Query("comentarios") != "" {
-		busqueda["comentarios"] = c.Query("comentarios")
+		busqueda["comentarios"] = bson.M{"$regex": c.Query("comentarios"), "$options": "im"}
 	}
 	if c.Query("cliente") != "" {
-		busqueda["cliente"] = c.Query("cliente")
+		busqueda["cliente"] = bson.M{"$regex": c.Query("cliente"), "$options": "im"}
 	}
 	if c.Query("estado") != "" {
-		busqueda["estado"] = c.Query("estado")
+		busqueda["estado"] = bson.M{"$regex": c.Query("estado"), "$options": "im"}
 	}
 
 	cursor, err := coll.Find(context.TODO(), busqueda)
@@ -266,6 +297,34 @@ func UpdateMotivoNovedades(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
+func GetFiles(c *fiber.Ctx) error {
+	coll := client.Database("portalDeNovedades").Collection("novedades")
+	idNumber, _ := strconv.Atoi(c.Params("id"))
+	var novedad Novedades
+	err := coll.FindOne(context.TODO(), bson.M{"idSecuencial": idNumber}).Decode(&novedad)
+	if err != nil {
+		return c.SendString("novedad no encontrada")
+	}
+
+	if c.Query("nombre") != "" {
+		nombre := c.Query("nombre")
+		existeArchivo, _ := findInStringArray(novedad.Adjuntos, nombre)
+		if !strings.Contains(nombre, "/") && strings.Count(nombre, ".") == 1 && (existeArchivo || novedad.AdjuntoMotivo == nombre) {
+			return c.SendFile(fmt.Sprintf("./archivosSubidos/%s", c.Query("nombre")))
+		} else {
+			return c.SendString("nombre invalido")
+		}
+	}
+	if c.Query("pos") != "" {
+		posicion, _ := strconv.Atoi(c.Query("pos"))
+		if len(novedad.Adjuntos) <= posicion {
+			return c.SendString("posicion inexistente")
+		}
+		return c.SendFile(fmt.Sprintf("./archivosSubidos/%s", novedad.Adjuntos[posicion]))
+	}
+	return c.SendString("debe especificar el archivo")
+}
+
 // ----Tipo Novedades----
 func GetTipoNovedad(c *fiber.Ctx) error {
 	coll := client.Database("portalDeNovedades").Collection("tipoNovedad")
@@ -300,7 +359,11 @@ func InsertCecos(c *fiber.Ctx) error {
 	var results []Cecos
 	cursor.All(context.TODO(), &results)
 
-	cecos.IdCecos = results[0].IdCecos + 1
+	if len(results) == 0 {
+		cecos.IdCecos = 1
+	} else {
+		cecos.IdCecos = results[0].IdCecos + 1
+	}
 	result, err := coll.InsertOne(context.TODO(), cecos)
 	if err != nil {
 		fmt.Print(err)
@@ -311,7 +374,7 @@ func InsertCecos(c *fiber.Ctx) error {
 
 // obtener todos los cecos
 func GetCecosAll(c *fiber.Ctx) error {
-	coll := client.Database("portalDeNovedades").Collection("novedades")
+	coll := client.Database("portalDeNovedades").Collection("centroDeCostos")
 	cursor, err := coll.Find(context.TODO(), bson.M{})
 	if err != nil {
 		fmt.Print(err)
@@ -323,11 +386,11 @@ func GetCecosAll(c *fiber.Ctx) error {
 	return c.JSON(cecos)
 }
 
-// obtener los cecos por id
+// obtener los cecos por codigo
 func GetCecos(c *fiber.Ctx) error {
-	coll := client.Database("portalDeNovedades").Collection("novedades")
+	coll := client.Database("portalDeNovedades").Collection("centroDeCostos")
 	idNumber, _ := strconv.Atoi(c.Params("id"))
-	cursor, err := coll.Find(context.TODO(), bson.M{"idSecuencial": idNumber})
+	cursor, err := coll.Find(context.TODO(), bson.M{"codigo": idNumber})
 	fmt.Println(coll)
 	if err != nil {
 		fmt.Print(err)
@@ -337,7 +400,31 @@ func GetCecos(c *fiber.Ctx) error {
 		fmt.Print(err)
 	}
 	return c.JSON(cecos)
+}
 
+func GetCecosFiltro(c *fiber.Ctx) error {
+	coll := client.Database("portalDeNovedades").Collection("centroDeCostos")
+	var busqueda bson.M = bson.M{}
+	if c.Query("descripcion") != "" {
+		busqueda["descripcion"] = bson.M{"$regex": c.Query("descripcion"), "$options": "im"}
+	}
+	if c.Query("cliente") != "" {
+		busqueda["cliente"] = bson.M{"$regex": c.Query("cliente"), "$options": "im"}
+	}
+	if c.Query("proyecto") != "" {
+		busqueda["proyecto"] = bson.M{"$regex": c.Query("proyecto"), "$options": "im"}
+	}
+
+	cursor, err := coll.Find(context.TODO(), busqueda)
+	fmt.Println(coll)
+	if err != nil {
+		fmt.Print(err)
+	}
+	var result []Cecos
+	if err = cursor.All(context.Background(), &result); err != nil {
+		fmt.Print(err)
+	}
+	return c.JSON(result)
 }
 
 func resumenNovedad(novedad Novedades) string {
@@ -345,13 +432,14 @@ func resumenNovedad(novedad Novedades) string {
 	var resumenDict map[string]interface{}
 	if novedad.Tipo == "PP" {
 		resumenDict = map[string]interface{}{
-			"Proveedor":    novedad.Proveedor,
-			"Plazo":        novedad.Plazo,
-			"ImporteTotal": novedad.ImporteTotal,
-			"Adjuntos":     novedad.Adjuntos,
+			"Proveedor":      novedad.Proveedor,
+			"Plazo":          novedad.Plazo,
+			"ImporteTotal":   novedad.ImporteTotal,
+			"Adjuntos":       novedad.Adjuntos,
+			"Distribuciones": novedad.Distribuciones,
 		}
 	}
-	if novedad.Tipo == "HE" || novedad.Tipo == "IG" || novedad.Tipo == "FS" {
+	if novedad.Tipo == "HE" || novedad.Tipo == "IG" {
 		resumenDict = map[string]interface{}{
 			"Cliente":      novedad.Cliente,
 			"Periodo":      novedad.Periodo,
@@ -361,12 +449,24 @@ func resumenNovedad(novedad Novedades) string {
 			"Recursos":     novedad.Recursos,
 		}
 	}
+	if novedad.Tipo == "FS" {
+		resumenDict = map[string]interface{}{
+			"Cliente":       novedad.Cliente,
+			"Periodo":       novedad.Periodo,
+			"Descripcion":   novedad.Descripcion,
+			"ImporteTotal":  novedad.ImporteTotal,
+			"Adjuntos":      novedad.Adjuntos,
+			"Recursos":      novedad.Recursos,
+			"OrdenDeCompra": novedad.OrdenDeCompra,
+		}
+	}
 	if novedad.Tipo == "RH" {
 		resumenDict = map[string]interface{}{
-			"Descripcion":  novedad.Descripcion,
-			"ImporteTotal": novedad.ImporteTotal,
-			"Adjuntos":     novedad.Adjuntos,
-			"Recursos":     novedad.Recursos,
+			"Descripcion":    novedad.Descripcion,
+			"ImporteTotal":   novedad.ImporteTotal,
+			"Adjuntos":       novedad.Adjuntos,
+			"Recursos":       novedad.Recursos,
+			"Distribuciones": novedad.Distribuciones,
 		}
 	}
 	if novedad.Tipo == "NP" {
@@ -384,4 +484,13 @@ func resumenNovedad(novedad Novedades) string {
 		resumen = string(resumenJson)
 	}
 	return resumen
+}
+
+func findInStringArray(arrayString []string, palabra string) (bool, int) {
+	for posicion, dato := range arrayString {
+		if dato == palabra {
+			return true, posicion
+		}
+	}
+	return false, len(arrayString)
 }
