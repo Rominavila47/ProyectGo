@@ -60,6 +60,8 @@ type Novedades struct {
 	Departamento          string              `bson:"departamento"`
 	Reclamo               bool                `bson:"reclamo"`
 	Freelance             bool                `bson:"freelance"`
+	Archivado			  bool				  `bson:"archivado"`
+
 }
 
 const (
@@ -285,6 +287,9 @@ func GetNovedadFiltro(c *fiber.Ctx) error {
 	}
 	if c.Query("departamento") != "" {
 		busqueda["departamento"] = bson.M{"$regex": c.Query("departamento"), "$options": "im"}
+	}
+	if c.Query("archivado") != "" {
+		busqueda["archivado"] = bson.M{"$regex": c.Query("archivado"), "$options": "im"}
 	}
 	fmt.Println(busqueda)
 	cursor, err := coll.Find(context.TODO(), busqueda)
